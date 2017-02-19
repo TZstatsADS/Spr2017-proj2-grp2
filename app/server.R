@@ -3,6 +3,7 @@ library(choroplethr)
 library(choroplethrZip)
 library(dplyr)
 
+
 ## Define Manhattan's neighborhood
 man.nbhd=c("all neighborhoods", "Central Harlem", 
            "Chelsea and Clinton",
