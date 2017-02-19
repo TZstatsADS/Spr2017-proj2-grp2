@@ -1,121 +1,61 @@
+library(rgeos)
+library(sp)
+library(rgdal)
+library(leaflet)
+library(htmlwidgets)
 library(shiny)
-library(choroplethr)
-library(choroplethrZip)
-library(dplyr)
 
-## Define Manhattan's neighborhood
-man.nbhd=c("all neighborhoods", "Central Harlem", 
-           "Chelsea and Clinton",
-           "East Harlem", 
-           "Gramercy Park and Murray Hill",
-           "Greenwich Village and Soho", 
-           "Lower Manhattan",
-           "Lower East Side", 
-           "Upper East Side", 
-           "Upper West Side",
-           "Inwood and Washington Heights")
-zip.nbhd=as.list(1:length(man.nbhd))
-zip.nbhd[[1]]=as.character(c(10026, 10027, 10030, 10037, 10039))
-zip.nbhd[[2]]=as.character(c(10001, 10011, 10018, 10019, 10020))
-zip.nbhd[[3]]=as.character(c(10036, 10029, 10035))
-zip.nbhd[[4]]=as.character(c(10010, 10016, 10017, 10022))
-zip.nbhd[[5]]=as.character(c(10012, 10013, 10014))
-zip.nbhd[[6]]=as.character(c(10004, 10005, 10006, 10007, 10038, 10280))
-zip.nbhd[[7]]=as.character(c(10002, 10003, 10009))
-zip.nbhd[[8]]=as.character(c(10021, 10028, 10044, 10065, 10075, 10128))
-zip.nbhd[[9]]=as.character(c(10023, 10024, 10025))
-zip.nbhd[[10]]=as.character(c(10031, 10032, 10033, 10034, 10040))
 
-## Load housing data
-load("../output/count.RData")
-load("../output/mh2009use.RData")
+# setwd("~/Desktop/Spr2017-proj2-grp2")
+setwd("/Users/AaronWang/Desktop/5243-proj2-grp2")
 
-# Define server logic required to draw a histogram
-shinyServer(function(input, output) {
+load('output/myShape1.RData')
+
+subdat<-spTransform(myShape1, CRS("+init=epsg:4326"))
+
+load('output/count_seperated.RData')
+
+shinyServer(function(input, output) { 
   
-  ## Neighborhood name
-  output$text = renderText({"Selected:"})
-  output$text1 = renderText({
-      paste("{ ", man.nbhd[as.numeric(input$nbhd)+1], " }")
-  })
-  
-  ## Panel 1: summary plots of time trends, 
-  ##          unit price and full price of sales. 
-  
-  output$distPlot <- renderPlot({
+  output$map <- renderLeaflet({
     
-    ## First filter data for selected neighborhood
-    mh2009.sel=mh2009.use
-    if(input$nbhd>0){
-      mh2009.sel=mh2009.use%>%
-                  filter(region %in% zip.nbhd[[as.numeric(input$nbhd)]])
+    if (input$days == "All day"){
+      count_intermediate = count_result %>% apply(c(1,2), sum)
+    }else{
+      count_intermediate = count_result[ , , (input$days == "Not Business Day") + 1]
     }
+    if (!input$showhr){
+      subdat@data$count = count_intermediate %>% apply(1, sum)
+    }else{
+      subdat@data$count = count_intermediate[, input$hr_adjust+1]
+    }
+  
+    #subdat@data$count = count_result[, input$hour+1, !input$isBussinessDay+1]
+    #subdat@data$count = count_result[, input$hr_adjust+1, ifelse(input$days == "Business Day", 1, 2)]
     
-    ## Monthly counts
-    month.v=as.vector(table(mh2009.sel$sale.month))
+    # 
+    # if (!input$showhr){
+    #   subdat@data$count = apply(count_result[, ,ifelse(input$days == "Business Day", 1, 2)], 1, sum)
+    # }
+    # else{
+    #   subdat@data$count = count_result[, input$hr_adjust+1, ifelse(input$days == "Business Day", 1, 2)]
+    # }
     
-    ## Price: unit (per sq. ft.) and full
-    type.price=data.frame(bldg.type=c("10", "13", "25", "28"))
-    type.price.sel=mh2009.sel%>%
-                group_by(bldg.type)%>%
-                summarise(
-                  price.mean=mean(sale.price, na.rm=T),
-                  price.median=median(sale.price, na.rm=T),
-                  unit.mean=mean(unit.price, na.rm=T),
-                  unit.median=median(unit.price, na.rm=T),
-                  sale.n=n()
-                )
-    type.price=left_join(type.price, type.price.sel, by="bldg.type")
+    #subdat@data$count = count_result[, input$hr_adjust+1,  1]
+      
+    subdat_data=subdat@data[,c("NTACode", "NTAName", "count")]
+    subdat<-SpatialPolygonsDataFrame(subdat, data=subdat_data)
     
-    ## Making the plots
-    layout(matrix(c(1,1,1,1,2,2,3,3,2,2,3,3), 3, 4, byrow=T))
-    par(cex.axis=1.3, cex.lab=1.5, 
-        font.axis=2, font.lab=2, col.axis="dark gray", bty="n")
-    
-    ### Sales monthly counts
-    plot(1:12, month.v, xlab="Months", ylab="Total sales", 
-         type="b", pch=21, col="black", bg="red", 
-         cex=2, lwd=2, ylim=c(0, max(month.v,na.rm=T)*1.05))
-    
-    ### Price per square foot
-    plot(c(0, max(type.price[,c(4,5)], na.rm=T)), 
-         c(0,5), 
-         xlab="Price per square foot", ylab="", 
-         bty="l", type="n")
-    text(rep(0, 4), 1:4+0.5, paste(c("coops", "condos", "luxury hotels", "comm. condos"), 
-                                  type.price$sale.n, sep=": "), adj=0, cex=1.5)
-    points(type.price$unit.mean, 1:nrow(type.price), pch=16, col=2, cex=2)
-    points(type.price$unit.median, 1:nrow(type.price),  pch=16, col=4, cex=2)
-    segments(type.price$unit.mean, 1:nrow(type.price), 
-              type.price$unit.median, 1:nrow(type.price),
-             lwd=2)    
-    
-    ### full price
-    plot(c(0, max(type.price[,-1], na.rm=T)), 
-         c(0,5), 
-         xlab="Sales Price", ylab="", 
-         bty="l", type="n")
-    text(rep(0, 4), 1:4+0.5, paste(c("coops", "condos", "luxury hotels", "comm. condos"), 
-                                   type.price$sale.n, sep=": "), adj=0, cex=1.5)
-    points(type.price$price.mean, 1:nrow(type.price), pch=16, col=2, cex=2)
-    points(type.price$price.median, 1:nrow(type.price),  pch=16, col=4, cex=2)
-    segments(type.price$price.mean, 1:nrow(type.price), 
-             type.price$price.median, 1:nrow(type.price),
-             lwd=2)    
+    # print leaflet
+    pal = colorBin(c('#fee0d2','#fb6a4a', '#cb181d', '#a50f15', '#67000d'), bins = c(0,10,100,1000,10000,100000))
+    popup1 = paste0('<strong>Neighborhood: </strong><br>', subdat_data$NTAName, 
+                    '<br><strong>Count of pick-ups: </strong><br>', subdat_data$count)
+  
+    print(leaflet(subdat) %>%
+    setView(lat=40.7128, lng=-74.0059, zoom=10) %>%
+    addProviderTiles('CartoDB.Positron') %>%
+    addPolygons(fillColor = ~pal(count), color = 'grey', weight = 1, popup = popup1, fillOpacity = .6))
+  
   })
   
-  ## Panel 2: map of sales distribution
-  output$distPlot1 <- renderPlot({
-    count.df.sel=count.df
-    if(input$nbhd>0){
-      count.df.sel=count.df%>%
-        filter(region %in% zip.nbhd[[as.numeric(input$nbhd)]])
-    }
-    # make the map for selected neighhoods
-    
-    zip_choropleth(count.df.sel,
-                   title       = "2009 Manhattan housing sales",
-                   legend      = "Number of sales",
-                   county_zoom = 36061)
-  })
 })
