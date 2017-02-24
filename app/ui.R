@@ -84,7 +84,10 @@ navbarPage("NYC TAXI", id="nav",
                                                    choices = list("Do not appear" = 1, "Show all stations" = 2, "Show unique station" = 3), 
                                                    selected = 1),
                                       
-                                      plotOutput("districttimeplot", height = 280)
+                                      plotOutput("districttimeplot", height = 280),
+                                      helpText(   a("Analysis",
+                                                    href="https://github.com/TZstatsADS/Spr2017-proj2-grp2/blob/master/doc/analysis.html")
+                                      )
                         )
  
                         # absolutePanel(id="graphstuff",class = "panel panel-default", fixed=TRUE,
@@ -135,9 +138,7 @@ navbarPage("NYC TAXI", id="nav",
            tabPanel("Raw Data",
                     hr(),
                     DT::dataTableOutput("rawtable")
-           ),
-           
-          tabPanel(includeHTML("../doc/analysis.html"))
+           )
            
            
            
