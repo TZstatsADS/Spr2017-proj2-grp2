@@ -1,0 +1,10 @@
+name: nyc_taxi
+title: NYC_TAXI
+account: hz2412
+server: shinyapps.io
+appId: 159123
+bundleId: 723389
+url: https://hz2412.shinyapps.io/nyc_taxi/
+when: 1487930592.58625
+asMultiple: FALSE
+asStatic: FALSE

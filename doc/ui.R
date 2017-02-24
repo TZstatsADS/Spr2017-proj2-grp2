@@ -6,12 +6,12 @@ vars <- c(
   "Not Business Day" = 2
 
 )
+#
 
-
-navbarPage("Taxi", id="nav", 
+navbarPage("NYC TAXI", id="nav", 
            #title = 'taxi menu',
            
-           tabPanel("Interactive map",
+           tabPanel("Interactive Map",
                     div(class="outer",
                         
                         tags$head(
@@ -24,12 +24,26 @@ navbarPage("Taxi", id="nav",
                         
                         # Shiny versions prior to 0.11 should use class="modal" instead.
                         absolutePanel(id = "controls", class = "panel panel-default", fixed = TRUE,
-                                      draggable = TRUE, top = 60, left = 0, right = "auto", bottom = 0,
+                                      draggable = F, top = 60, left = "auto", right = 0, bottom = "auto",
+                                      width = 180, height = 160,
+                                      
+                                      radioButtons("CF", label = "Layers",
+                                                   choices = list("Count Number" = "count", "Fair Per Distance" = "FPD","Cluster" = "cluster1" ,"Cash Paying Percentage" = "cash"), 
+                                                   selected = "count")
+                                      
+                                      
+                        ),
+                        
+                        
+                        absolutePanel(id = "controls", class = "panel panel-default", fixed = TRUE,
+                                      draggable = TRUE, top = 60, left = 0, right = "auto", bottom = "auto",
                                       width = 330, height = "auto",
                                       
-                                      h2("Taxi"),
+                                      h2("Panel"),
                                       
+
                                       selectInput("days", "Days", c("All Day", "Business Day", "Not Business Day"),selected = "All Day"),
+
                                       
                                       checkboxInput(inputId = "showhr",
                                                     label = strong("Show hours"),
@@ -46,46 +60,74 @@ navbarPage("Taxi", id="nav",
                                                                    min = 0, max = 23, value = NULL, step = 1)
                                       ),
                                       
-                                      selectInput("size", "Size", vars, selected = "adultpop"),
-                                      conditionalPanel("input.color == 'superzip' || input.size == 'superzip'",
-                                                       # Only prompt for threshold when coloring or sizing by superzip
-                                                       numericInput("threshold", "SuperZIP threshold (top n percentile)", 5)
+                                      
+                                      
+                                      
+                                      checkboxInput("top15count", "Top 5 Count", FALSE),
+                                      checkboxInput("top15FPD", "Top 5 FPD", FALSE),
+                                      
+                                      
+                                      checkboxInput(inputId = "showbr",
+                                                    label = strong("Show Borough for Top 5 counts/FPD"),
+                                                    value = FALSE),
+                                      
+                                      conditionalPanel(condition = "input.showbr == true",
+                                                       selectInput("boroSelect", "Borough for Top 5 counts/FPD", 
+                                                                   c("Manhattan", "Bronx", "Brooklyn", "Queens", "Staten Island", "All"), 
+                                                                   selected = "All")
                                       ),
                                       
-                                      plotOutput("histCentile", height = 200),
-                                      plotOutput("scatterCollegeIncome", height = 250)
+                                      
+                                    
+                                      
+                                      radioButtons("subway", label = h3("Subway Station"),
+                                                   choices = list("Do not appear" = 1, "Show all stations" = 2, "Show unique station" = 3), 
+                                                   selected = 1),
+                                      
+                                      plotOutput("districttimeplot", height = 280)
                         )
+ 
+                        # absolutePanel(id="graphstuff",class = "panel panel-default", fixed=TRUE,
+                        #               draggable = TRUE, top=55, left="auto", right= 5, bottom="auto",width=300,
+                        #               height=100, style="opacity:0.65",
+                        #               
+                        #               
+                        #               h4("hourly flow change", align = "center"),
+                        #               plotOutput("districttimeplot",height = 200))
                         
                     )
            ),
            
-           # tabPanel("Data explorer",
-           #          fluidRow(
-           #            column(3,
-           #                   selectInput("states", "States", c("All states"="", structure(state.abb, names=state.name), "Washington, DC"="DC"), multiple=TRUE)
-           #            ),
-           #            column(3,
-           #                   conditionalPanel("input.states",
-           #                                    selectInput("cities", "Cities", c("All cities"=""), multiple=TRUE)
-           #                   )
-           #            ),
-           #            column(3,
-           #                   conditionalPanel("input.states",
-           #                                    selectInput("zipcodes", "Zipcodes", c("All zipcodes"=""), multiple=TRUE)
-           #                   )
-           #            )
-           #          ),
-           #          fluidRow(
-           #            column(1,
-           #                   numericInput("minScore", "Min score", min=0, max=100, value=0)
-           #            ),
-           #            column(1,
-           #                   numericInput("maxScore", "Max score", min=0, max=100, value=100)
-           #            )
-           #          ),
-           #          hr(),
-           #          DT::dataTableOutput("ziptable")
-           # ),
            
-           conditionalPanel("false", icon("crosshair"))
+           tabPanel("Dynamic Map",
+                    div(class="outer",
+                        
+                        tags$head(
+                          # Include our custom CSS
+                          includeCSS("styles.css"),
+                          includeScript("gomap.js")
+                        ),
+                        
+                        leafletOutput("map2", width="100%", height="100%"),
+                        
+                        absolutePanel(id = "controls", class = "panel panel-default", fixed = TRUE,
+                                      draggable = TRUE, top = 60, left = 20, right = "auto", bottom = "auto",
+                                      width = 330, height = "auto",
+                                      
+                                      h2("Dynamic map of NYC taxi hourly flow change"),
+                                      
+                                      
+                                      selectInput("pd", "pick up or drop off", c("Pick up", "Drop off", "All"), selected = "Pick up"),
+                                      
+                                      textInput("choose date", "Choose date", "1/1/2015"),
+                                      
+                                      sliderInput("hours", "Hours of Day:", 
+                                                  min = 0, max = 23, value = 0, step = 1,
+                                                  animate=animationOptions(interval = 500)),
+                                      helpText("Click play button to see dynamic flow data")
+                        )
+
+                        
+                    )
+           )
 )
